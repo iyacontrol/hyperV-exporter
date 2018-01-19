@@ -22,16 +22,9 @@ type WmiCollector struct {
 	collector collector.Collector
 }
 
-// landingPage contains the HTML served at '/'.
-// TODO: Make this nicer and more informative.
-var landingPage = []byte(`<html>
-	<head><title>Hyper-V exporter</title></head>
-	<body>
-	<h1>Hyper-V exporter</h1>
-	<p><a href='` + *metricPath + `'>Metrics</a></p>
-	</body>
-	</html>
-	`)
+const (
+	serviceName = "hyperV_exporter"
+)
 
 var (
 	scrapeDurationDesc = prometheus.NewDesc(
@@ -61,7 +54,7 @@ func (coll WmiCollector) Describe(ch chan<- *prometheus.Desc) {
 func (coll WmiCollector) Collect(ch chan<- prometheus.Metric) {
 	go func(c collector.Collector) {
 		execute(c, ch)
-	}(c)
+	}(coll.collector)
 }
 
 func execute(c collector.Collector, ch chan<- prometheus.Metric) {
@@ -81,14 +74,18 @@ func execute(c collector.Collector, ch chan<- prometheus.Metric) {
 		scrapeDurationDesc,
 		prometheus.GaugeValue,
 		duration.Seconds(),
-		name,
+		"hyperV",
 	)
 	ch <- prometheus.MustNewConstMetric(
 		scrapeSuccessDesc,
 		prometheus.GaugeValue,
 		success,
-		name,
+		"hyperV",
 	)
+}
+
+func loadCollector() (collector.Collector, error) {
+	return collector.NewHyperVCollector()
 }
 
 func init() {
@@ -138,7 +135,7 @@ func main() {
 		go svc.Run(serviceName, &wmiExporterService{stopCh: stopCh})
 	}
 
-	collector, err = collector.NewHyperVCollector()
+	collector, err := loadCollector()
 	if err != nil {
 		log.Fatalf("Couldn't load collector: %s", err)
 	}
@@ -148,6 +145,17 @@ func main() {
 
 	http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/health", healthCheck)
+
+	// landingPage contains the HTML served at '/'.
+	// TODO: Make this nicer and more informative.
+	var landingPage = []byte(`<html>
+	<head><title>Hyper-V exporter</title></head>
+	<body>
+	<h1>Hyper-V exporter</h1>
+	<p><a href='` + *metricsPath + `'>Metrics</a></p>
+	</body>
+	</html>
+	`)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(landingPage)
 	})
@@ -172,4 +180,31 @@ func main() {
 func healthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	io.WriteString(w, `{"status":"ok"}`)
+}
+
+type wmiExporterService struct {
+	stopCh chan<- bool
+}
+
+func (s *wmiExporterService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	changes <- svc.Status{State: svc.StartPending}
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+loop:
+	for {
+		select {
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				s.stopCh <- true
+				break loop
+			default:
+				log.Error(fmt.Sprintf("unexpected control request #%d", c))
+			}
+		}
+	}
+	changes <- svc.Status{State: svc.StopPending}
+	return
 }
