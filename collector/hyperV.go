@@ -38,9 +38,15 @@ type HyperVCollector struct {
 	Value2MGPApages               *prometheus.Desc
 	Value4Kdevicepages            *prometheus.Desc
 	Value4KGPApages               *prometheus.Desc
-	VirtualProcessors             *prometheus.Desc
 	VirtualTLBFlushEntiresPersec  *prometheus.Desc
 	VirtualTLBPages               *prometheus.Desc
+
+	// Win32_PerfRawData_HvStats_HyperVHypervisor：获取逻辑处理器数量、虚拟处理器数量
+	LogicalProcessors *prometheus.Desc
+	VirtualProcessors *prometheus.Desc
+
+	// Win32_PerfRawData_HvStats_HyperVHypervisorVirtualProcessor：获取宾客CPU使用率、管理程序CPU使用率、CPU空闲率（需要通过RunTime计算）
+
 }
 
 // NewHyperVCollector ...
@@ -196,12 +202,6 @@ func NewHyperVCollector() (Collector, error) {
 			nil,
 			nil,
 		),
-		VirtualProcessors: prometheus.NewDesc(
-			prometheus.BuildFQName(Namespace, "hv", "virtual_rocessors"),
-			"The number of virtual processors present in the partition",
-			nil,
-			nil,
-		),
 		VirtualTLBFlushEntiresPersec: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "hv", "virtual_tlb_flush_entires_persec"),
 			"The rate of flushes of the entire virtual TLB",
@@ -217,6 +217,18 @@ func NewHyperVCollector() (Collector, error) {
 
 		//
 
+		VirtualProcessors: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "hv", "virtual_processors"),
+			"The number of virtual processors present in the system",
+			nil,
+			nil,
+		),
+		LogicalProcessors: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "hv", "logical_processors"),
+			"The number of logical processors present in the system",
+			nil,
+			nil,
+		),
 	}, nil
 }
 
@@ -235,6 +247,11 @@ func (c *HyperVCollector) Collect(ch chan<- prometheus.Metric) error {
 
 	if desc, err := c.collectVmHv(ch); err != nil {
 		log.Println("[ERROR] failed collecting hyperV hv status metrics:", desc, err)
+		return err
+	}
+
+	if desc, err := c.collectVmProcessor(ch); err != nil {
+		log.Println("[ERROR] failed collecting hyperV processor metrics:", desc, err)
 		return err
 	}
 	return nil
@@ -340,7 +357,6 @@ type Win32_PerfRawData_HvStats_HyperVHypervisorRootPartition struct {
 	Value2MGPApages               uint64
 	Value4Kdevicepages            uint64
 	Value4KGPApages               uint64
-	VirtualProcessors             uint64
 	VirtualTLBFlushEntiresPersec  uint64
 	VirtualTLBPages               uint64
 }
@@ -477,12 +493,6 @@ func (c *HyperVCollector) collectVmHv(ch chan<- prometheus.Metric) (*prometheus.
 			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			c.VirtualProcessors,
-			prometheus.GaugeValue,
-			float64(obj.VirtualProcessors),
-			label,
-		)
-		ch <- prometheus.MustNewConstMetric(
 			c.VirtualTLBFlushEntiresPersec,
 			prometheus.GaugeValue,
 			float64(obj.VirtualTLBFlushEntiresPersec),
@@ -498,4 +508,48 @@ func (c *HyperVCollector) collectVmHv(ch chan<- prometheus.Metric) (*prometheus.
 	}
 
 	return nil, nil
+}
+
+// Win32_PerfRawData_HvStats_HyperVHypervisor ...
+type Win32_PerfRawData_HvStats_HyperVHypervisor struct {
+	Name              string
+	LogicalProcessors uint64
+	VirtualProcessors uint64
+}
+
+func (c *HyperVCollector) collectVmProcessor(ch chan<- prometheus.Metric) (*prometheus.Desc, error) {
+	var dst []Win32_PerfRawData_HvStats_HyperVHypervisor
+	if err := wmi.Query(wmi.CreateQuery(&dst, ""), &dst); err != nil {
+		return nil, err
+	}
+
+	for _, obj := range dst {
+		label := obj.Name
+
+		ch <- prometheus.MustNewConstMetric(
+			c.LogicalProcessors,
+			prometheus.GaugeValue,
+			float64(obj.LogicalProcessors),
+			label,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.VirtualProcessors,
+			prometheus.GaugeValue,
+			float64(obj.VirtualProcessors),
+			label,
+		)
+
+	}
+
+	return nil, nil
+}
+
+// Win32_PerfRawData_HvStats_HyperVHypervisorRootVirtualProcessor ...
+type Win32_PerfRawData_HvStats_HyperVHypervisorRootVirtualProcessor struct {
+	Name                     string
+	PercentGuestRunTime      uint64
+	PercentHypervisorRunTime uint64
+	PercentRemoteRunTime     uint64
+	PercentTotalRunTime      uint64
 }
