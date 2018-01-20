@@ -273,25 +273,25 @@ func NewHyperVCollector() (Collector, error) {
 		PercentGuestRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "guest_run_time"),
 			"The percentage of time spent by the virtual processor in guest code",
-			nil,
+			[]string{"process"},
 			nil,
 		),
 		PercentHypervisorRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "hypervisor_run_time"),
 			"The percentage of time spent by the virtual processor in hypervisor code",
-			nil,
+			[]string{"process"},
 			nil,
 		),
 		PercentRemoteRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "remote_run_time"),
 			"The percentage of time spent by the virtual processor running on a remote node",
-			nil,
+			[]string{"process"},
 			nil,
 		),
 		PercentTotalRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "total_run_time"),
 			"The percentage of time spent by the virtual processor in guest and hypervisor code",
-			nil,
+			[]string{"process"},
 			nil,
 		),
 
@@ -523,6 +523,9 @@ func (c *HyperVCollector) collectVmVid(ch chan<- prometheus.Metric) (*prometheus
 	}
 
 	for _, page := range dst {
+		if strings.Contains(page.Name, "_Total") {
+			continue
+		}
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PhysicalPagesAllocated,
@@ -755,28 +758,34 @@ func (c *HyperVCollector) collectVmRate(ch chan<- prometheus.Metric) (*prometheu
 			continue
 		}
 
+		label := obj.Name
+
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentGuestRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentGuestRunTime),
+			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentHypervisorRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentHypervisorRunTime),
+			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentRemoteRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentRemoteRunTime),
+			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentTotalRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentTotalRunTime),
+			label,
 		)
 
 	}
