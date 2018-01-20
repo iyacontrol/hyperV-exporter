@@ -76,6 +76,14 @@ type HyperVCollector struct {
 	PacketsSentPersec                      *prometheus.Desc
 	PurgedMacAddresses                     *prometheus.Desc
 	PurgedMacAddressesPersec               *prometheus.Desc
+
+	// Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter：获取Legacy虚拟网络适配器信息
+	AdapterBytesDropped         *prometheus.Desc
+	AdapterBytesReceivedPersec  *prometheus.Desc
+	AdapterBytesSentPersec      *prometheus.Desc
+	AdapterFramesDropped        *prometheus.Desc
+	AdapterFramesReceivedPersec *prometheus.Desc
+	AdapterFramesSentPersec     *prometheus.Desc
 }
 
 // NewHyperVCollector ...
@@ -471,7 +479,6 @@ func (c *HyperVCollector) Collect(ch chan<- prometheus.Metric) error {
 
 // Win32_PerfRawData_VmmsVirtualMachineStats_HyperVVirtualMachineHealthSummary vm health status
 type Win32_PerfRawData_VmmsVirtualMachineStats_HyperVVirtualMachineHealthSummary struct {
-	Name           string
 	HealthCritical uint32
 	HealthOk       uint32
 }
@@ -483,20 +490,16 @@ func (c *HyperVCollector) collectVmHealth(ch chan<- prometheus.Metric) (*prometh
 	}
 
 	for _, health := range dst {
-		label := health.Name
-
 		ch <- prometheus.MustNewConstMetric(
 			c.HealthCritical,
 			prometheus.GaugeValue,
 			float64(health.HealthCritical),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.HealthOk,
 			prometheus.GaugeValue,
 			float64(health.HealthOk),
-			label,
 		)
 
 	}
@@ -724,7 +727,6 @@ func (c *HyperVCollector) collectVmHv(ch chan<- prometheus.Metric) (*prometheus.
 
 // Win32_PerfRawData_HvStats_HyperVHypervisor ...
 type Win32_PerfRawData_HvStats_HyperVHypervisor struct {
-	Name              string
 	LogicalProcessors uint64
 	VirtualProcessors uint64
 }
@@ -736,20 +738,17 @@ func (c *HyperVCollector) collectVmProcessor(ch chan<- prometheus.Metric) (*prom
 	}
 
 	for _, obj := range dst {
-		label := obj.Name
 
 		ch <- prometheus.MustNewConstMetric(
 			c.LogicalProcessors,
 			prometheus.GaugeValue,
 			float64(obj.LogicalProcessors),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.VirtualProcessors,
 			prometheus.GaugeValue,
 			float64(obj.VirtualProcessors),
-			label,
 		)
 
 	}
@@ -1001,4 +1000,15 @@ func (c *HyperVCollector) collectVmSwitch(ch chan<- prometheus.Metric) (*prometh
 	}
 
 	return nil, nil
+}
+
+// Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter ...
+type Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter struct {
+	Name                        string
+	AdapterBytesDropped         uint64
+	AdapterBytesReceivedPersec  uint64
+	AdapterBytesSentPersec      uint64
+	AdapterFramesDropped        uint64
+	AdapterFramesReceivedPersec uint64
+	AdapterFramesSentPersec     uint64
 }
