@@ -52,9 +52,7 @@ func (coll WmiCollector) Describe(ch chan<- *prometheus.Desc) {
 // prometheus. Collect could be called several times concurrently
 // and thus its run is protected by a single mutex.
 func (coll WmiCollector) Collect(ch chan<- prometheus.Metric) {
-	go func(c collector.Collector) {
-		execute(c, ch)
-	}(coll.collector)
+	execute(coll.collector, ch)
 }
 
 func execute(c collector.Collector, ch chan<- prometheus.Metric) {

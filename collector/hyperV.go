@@ -2,6 +2,7 @@ package collector
 
 import (
 	"log"
+	"strings"
 
 	"github.com/StackExchange/wmi"
 	"github.com/prometheus/client_golang/prometheus"
@@ -522,27 +523,23 @@ func (c *HyperVCollector) collectVmVid(ch chan<- prometheus.Metric) (*prometheus
 	}
 
 	for _, page := range dst {
-		label := page.Name
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PhysicalPagesAllocated,
 			prometheus.GaugeValue,
 			float64(page.PhysicalPagesAllocated),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PreferredNUMANodeIndex,
 			prometheus.GaugeValue,
 			float64(page.PreferredNUMANodeIndex),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.RemotePhysicalPages,
 			prometheus.GaugeValue,
 			float64(page.RemotePhysicalPages),
-			label,
 		)
 
 	}
@@ -583,141 +580,123 @@ func (c *HyperVCollector) collectVmHv(ch chan<- prometheus.Metric) (*prometheus.
 	}
 
 	for _, obj := range dst {
-		label := obj.Name
+		if strings.Contains(obj.Name, "_Total") {
+			continue
+		}
 
 		ch <- prometheus.MustNewConstMetric(
 			c.AddressSpaces,
 			prometheus.GaugeValue,
 			float64(obj.AddressSpaces),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.AttachedDevices,
 			prometheus.GaugeValue,
 			float64(obj.AttachedDevices),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DepositedPages,
 			prometheus.GaugeValue,
 			float64(obj.DepositedPages),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DeviceDMAErrors,
 			prometheus.GaugeValue,
 			float64(obj.DeviceDMAErrors),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DeviceInterruptErrors,
 			prometheus.GaugeValue,
 			float64(obj.DeviceInterruptErrors),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DeviceInterruptThrottleEvents,
 			prometheus.GaugeValue,
 			float64(obj.DeviceInterruptThrottleEvents),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.GPAPages,
 			prometheus.GaugeValue,
 			float64(obj.GPAPages),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.GPASpaceModificationsPersec,
 			prometheus.GaugeValue,
 			float64(obj.GPASpaceModificationsPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.IOTLBFlushCost,
 			prometheus.GaugeValue,
 			float64(obj.IOTLBFlushCost),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.IOTLBFlushesPersec,
 			prometheus.GaugeValue,
 			float64(obj.IOTLBFlushesPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.RecommendedVirtualTLBSize,
 			prometheus.GaugeValue,
 			float64(obj.RecommendedVirtualTLBSize),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.SkippedTimerTicks,
 			prometheus.GaugeValue,
 			float64(obj.SkippedTimerTicks),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.Value1Gdevicepages,
 			prometheus.GaugeValue,
 			float64(obj.Value1Gdevicepages),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.Value1GGPApages,
 			prometheus.GaugeValue,
 			float64(obj.Value1GGPApages),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.Value2Mdevicepages,
 			prometheus.GaugeValue,
 			float64(obj.Value2Mdevicepages),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.Value2MGPApages,
 			prometheus.GaugeValue,
 			float64(obj.Value2MGPApages),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.Value4Kdevicepages,
 			prometheus.GaugeValue,
 			float64(obj.Value4Kdevicepages),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.Value4KGPApages,
 			prometheus.GaugeValue,
 			float64(obj.Value4KGPApages),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.VirtualTLBFlushEntiresPersec,
 			prometheus.GaugeValue,
 			float64(obj.VirtualTLBFlushEntiresPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.VirtualTLBPages,
 			prometheus.GaugeValue,
 			float64(obj.VirtualTLBPages),
-			label,
 		)
 
 	}
@@ -772,34 +751,32 @@ func (c *HyperVCollector) collectVmRate(ch chan<- prometheus.Metric) (*prometheu
 	}
 
 	for _, obj := range dst {
-		label := obj.Name
+		if strings.Contains(obj.Name, "_Total") {
+			continue
+		}
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentGuestRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentGuestRunTime),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentHypervisorRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentHypervisorRunTime),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentRemoteRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentRemoteRunTime),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentTotalRunTime,
 			prometheus.GaugeValue,
 			float64(obj.PercentTotalRunTime),
-			label,
 		)
 
 	}
@@ -843,116 +820,101 @@ func (c *HyperVCollector) collectVmSwitch(ch chan<- prometheus.Metric) (*prometh
 	}
 
 	for _, obj := range dst {
-		label := obj.Name
+		if strings.Contains(obj.Name, "_Total") {
+			continue
+		}
 
 		ch <- prometheus.MustNewConstMetric(
 			c.BroadcastPacketsReceivedPersec,
 			prometheus.GaugeValue,
 			float64(obj.BroadcastPacketsReceivedPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.BroadcastPacketsSentPersec,
 			prometheus.GaugeValue,
 			float64(obj.BroadcastPacketsSentPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.BytesPersec,
 			prometheus.GaugeValue,
 			float64(obj.BytesPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.BytesReceivedPersec,
 			prometheus.GaugeValue,
 			float64(obj.BytesReceivedPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.BytesSentPersec,
 			prometheus.GaugeValue,
 			float64(obj.BytesSentPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DirectedPacketsReceivedPersec,
 			prometheus.GaugeValue,
 			float64(obj.DirectedPacketsReceivedPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.DirectedPacketsSentPersec,
 			prometheus.GaugeValue,
 			float64(obj.DirectedPacketsSentPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.DroppedPacketsIncomingPersec,
 			prometheus.GaugeValue,
 			float64(obj.DroppedPacketsIncomingPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.DroppedPacketsOutgoingPersec,
 			prometheus.GaugeValue,
 			float64(obj.DroppedPacketsOutgoingPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.ExtensionsDroppedPacketsIncomingPersec,
 			prometheus.GaugeValue,
 			float64(obj.ExtensionsDroppedPacketsIncomingPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.ExtensionsDroppedPacketsOutgoingPersec,
 			prometheus.GaugeValue,
 			float64(obj.ExtensionsDroppedPacketsOutgoingPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.LearnedMacAddresses,
 			prometheus.GaugeValue,
 			float64(obj.LearnedMacAddresses),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.LearnedMacAddressesPersec,
 			prometheus.GaugeValue,
 			float64(obj.LearnedMacAddressesPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.MulticastPacketsReceivedPersec,
 			prometheus.GaugeValue,
 			float64(obj.MulticastPacketsReceivedPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.MulticastPacketsSentPersec,
 			prometheus.GaugeValue,
 			float64(obj.MulticastPacketsSentPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.NumberofSendChannelMovesPersec,
 			prometheus.GaugeValue,
 			float64(obj.NumberofSendChannelMovesPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.NumberofVMQMovesPersec,
 			prometheus.GaugeValue,
 			float64(obj.NumberofVMQMovesPersec),
-			label,
 		)
 
 		// ...
@@ -960,41 +922,35 @@ func (c *HyperVCollector) collectVmSwitch(ch chan<- prometheus.Metric) (*prometh
 			c.PacketsFlooded,
 			prometheus.GaugeValue,
 			float64(obj.PacketsFlooded),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PacketsFloodedPersec,
 			prometheus.GaugeValue,
 			float64(obj.PacketsFloodedPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PacketsPersec,
 			prometheus.GaugeValue,
 			float64(obj.PacketsPersec),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PacketsReceivedPersec,
 			prometheus.GaugeValue,
 			float64(obj.PacketsReceivedPersec),
-			label,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			c.PurgedMacAddresses,
 			prometheus.GaugeValue,
 			float64(obj.PurgedMacAddresses),
-			label,
 		)
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PurgedMacAddressesPersec,
 			prometheus.GaugeValue,
 			float64(obj.PurgedMacAddressesPersec),
-			label,
 		)
 
 	}
