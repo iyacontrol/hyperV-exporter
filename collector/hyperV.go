@@ -85,6 +85,8 @@ type HyperVCollector struct {
 	AdapterFramesDropped        *prometheus.Desc
 	AdapterFramesReceivedPersec *prometheus.Desc
 	AdapterFramesSentPersec     *prometheus.Desc
+
+	// Win32_PerfRawData_NvspNicStats_HyperVVirtualNetworkAdapter：获取虚拟适配器信息
 }
 
 // NewHyperVCollector ...
@@ -273,25 +275,25 @@ func NewHyperVCollector() (Collector, error) {
 		PercentGuestRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "guest_run_time"),
 			"The percentage of time spent by the virtual processor in guest code",
-			[]string{"process"},
+			[]string{"core"},
 			nil,
 		),
 		PercentHypervisorRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "hypervisor_run_time"),
 			"The percentage of time spent by the virtual processor in hypervisor code",
-			[]string{"process"},
+			[]string{"core"},
 			nil,
 		),
 		PercentRemoteRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "remote_run_time"),
 			"The percentage of time spent by the virtual processor running on a remote node",
-			[]string{"process"},
+			[]string{"core"},
 			nil,
 		),
 		PercentTotalRunTime: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, "rate", "total_run_time"),
 			"The percentage of time spent by the virtual processor in guest and hypervisor code",
-			[]string{"process"},
+			[]string{"core"},
 			nil,
 		),
 
@@ -440,6 +442,45 @@ func NewHyperVCollector() (Collector, error) {
 			nil,
 			nil,
 		),
+
+		//
+
+		AdapterBytesDropped: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "bytes_persec"),
+			"Bytes Dropped is the number of bytes dropped on the network adapter",
+			nil,
+			nil,
+		),
+		AdapterBytesReceivedPersec: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "bytes_received_persec"),
+			"Bytes Received/sec is the number of bytes received per second on the network adapter",
+			nil,
+			nil,
+		),
+		AdapterBytesSentPersec: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "bytes_sent_persec"),
+			"Bytes Sent/sec is the number of bytes sent per second over the network adapter",
+			nil,
+			nil,
+		),
+		AdapterFramesDropped: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "frames_dropped"),
+			"Frames Dropped is the number of frames dropped on the network adapter",
+			nil,
+			nil,
+		),
+		AdapterFramesReceivedPersec: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "frames_received_persec"),
+			"Frames Received/sec is the number of frames received per second on the network adapter",
+			nil,
+			nil,
+		),
+		AdapterFramesSentPersec: prometheus.NewDesc(
+			prometheus.BuildFQName(Namespace, "ethernet", "frames_sent_persec"),
+			"Frames Sent/sec is the number of frames sent per second over the network adapter",
+			nil,
+			nil,
+		),
 	}, nil
 }
 
@@ -473,6 +514,11 @@ func (c *HyperVCollector) Collect(ch chan<- prometheus.Metric) error {
 
 	if desc, err := c.collectVmSwitch(ch); err != nil {
 		log.Println("[ERROR] failed collecting hyperV switch metrics:", desc, err)
+		return err
+	}
+
+	if desc, err := c.collectVmEthernet(ch); err != nil {
+		log.Println("[ERROR] failed collecting hyperV ethernet metrics:", desc, err)
 		return err
 	}
 	return nil
@@ -757,8 +803,12 @@ func (c *HyperVCollector) collectVmRate(ch chan<- prometheus.Metric) (*prometheu
 		if strings.Contains(obj.Name, "_Total") {
 			continue
 		}
-
-		label := obj.Name
+		// Root VP 3
+		names := strings.Split(obj.Name, " ")
+		if len(names) == 0 {
+			continue
+		}
+		label := names[len(names)-1]
 
 		ch <- prometheus.MustNewConstMetric(
 			c.PercentGuestRunTime,
@@ -969,11 +1019,63 @@ func (c *HyperVCollector) collectVmSwitch(ch chan<- prometheus.Metric) (*prometh
 
 // Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter ...
 type Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter struct {
-	Name                        string
-	AdapterBytesDropped         uint64
-	AdapterBytesReceivedPersec  uint64
-	AdapterBytesSentPersec      uint64
-	AdapterFramesDropped        uint64
-	AdapterFramesReceivedPersec uint64
-	AdapterFramesSentPersec     uint64
+	Name                 string
+	BytesDropped         uint64
+	BytesReceivedPersec  uint64
+	BytesSentPersec      uint64
+	FramesDropped        uint64
+	FramesReceivedPersec uint64
+	FramesSentPersec     uint64
+}
+
+func (c *HyperVCollector) collectVmEthernet(ch chan<- prometheus.Metric) (*prometheus.Desc, error) {
+	var dst []Win32_PerfRawData_EthernetPerfProvider_HyperVLegacyNetworkAdapter
+	if err := wmi.Query(wmi.CreateQuery(&dst, ""), &dst); err != nil {
+		return nil, err
+	}
+
+	for _, obj := range dst {
+		if strings.Contains(obj.Name, "_Total") {
+			continue
+		}
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterBytesDropped,
+			prometheus.GaugeValue,
+			float64(obj.BytesDropped),
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterBytesReceivedPersec,
+			prometheus.GaugeValue,
+			float64(obj.BytesReceivedPersec),
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterBytesSentPersec,
+			prometheus.GaugeValue,
+			float64(obj.BytesSentPersec),
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterFramesReceivedPersec,
+			prometheus.GaugeValue,
+			float64(obj.FramesReceivedPersec),
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterFramesDropped,
+			prometheus.GaugeValue,
+			float64(obj.BytesSentPersec),
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			c.AdapterFramesSentPersec,
+			prometheus.GaugeValue,
+			float64(obj.FramesSentPersec),
+		)
+
+	}
+
+	return nil, nil
 }
